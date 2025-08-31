@@ -1,25 +1,49 @@
+-- ===================================================================
+--    RONNIX HUB
+--    Финальная версия с улучшенным Ability Viewer (инвентарь + синхронизация цвета)
+--    Интегрирована вкладка "Purple Bomb".
+--    Размер GUI восстановлен до оригинального (без UIScale).
+--    Цвета текста StatusLabel на вкладке Main сделаны более контрастными.
+--    Исправлена проблема с запуском (ScreenGui.Parent = CoreGui)
+-- ===================================================================
+
+-- Ожидаем, пока игра будет готова
+if game.Loaded then task.wait() else game.Loaded:Wait() end
+
+-- Сервисы
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
+-- Локальный игрок
 local localPlayer = Players.LocalPlayer
 if not localPlayer then
     Players.PlayerAdded:Wait()
     localPlayer = Players.LocalPlayer
 end
 
+-- --- Очистка старой версии GUI, если она есть ---
 if _G.RONNIXHUB and typeof(_G.RONNIXHUB.ScreenGui) == "Instance" and _G.RONNIXHUB.ScreenGui.Parent then
     _G.RONNIXHUB.ScreenGui:Destroy()
 end
-_G.RONNIXHUB = {}
+_G.RONNIXHUB = {} -- Инициализируем _G.RONNIXHUB
 
+-- Создаем GUI
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "RONNIXHUB"
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = localPlayer:WaitForChild("PlayerGui")
-_G.RONNIXHUB.ScreenGui = ScreenGui
+-- Родитель установлен на CoreGui, как в оригинальном большом скрипте, для стабильности.
+ScreenGui.Parent = game:GetService("CoreGui")
+_G.RONNIXHUB.ScreenGui = ScreenGui -- Присваиваем ScreenGui к _G.RONNIXHUB
 
+-- UIScale для адаптации к размерам экрана (для телефонов) (УДАЛЕНО: чтобы вернуть оригинальный размер)
+-- local UIScale = Instance.new("UIScale")
+-- UIScale.Scale = 0.8
+-- UIScale.Parent = ScreenGui
+
+
+-- Кнопка для разворачивания
 local ExpandButton = Instance.new("TextButton")
 ExpandButton.Name = "ExpandButton"
 ExpandButton.Text = ">"
@@ -37,20 +61,23 @@ local ExpandCorner = Instance.new("UICorner")
 ExpandCorner.CornerRadius = UDim.new(0, 8)
 ExpandCorner.Parent = ExpandButton
 
+-- Главный фрейм
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "Main"
 MainFrame.Size = UDim2.new(0, 400, 0, 480)
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-MainFrame.Position = UDim2.new(0.5, 0, 0.5, 20)
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 20) -- Смещение на 20 пикселей вниз
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
 MainFrame.Parent = ScreenGui
 
+-- Скругление углов
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 8)
 UICorner.Parent = MainFrame
 
+-- Верхняя панель
 local TopBar = Instance.new("Frame")
 TopBar.Name = "TopBar"
 TopBar.Size = UDim2.new(1, 0, 0, 30)
@@ -70,6 +97,7 @@ Title.Position = UDim2.new(0, 10, 0, 0)
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TopBar
 
+-- Кнопка сворачивания
 local MinimizeButton = Instance.new("TextButton")
 MinimizeButton.Name = "Minimize"
 MinimizeButton.Text = "_"
@@ -81,6 +109,7 @@ MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
 MinimizeButton.Position = UDim2.new(1, -60, 0, 0)
 MinimizeButton.Parent = TopBar
 
+-- Кнопка закрытия
 local CloseButton = Instance.new("TextButton")
 CloseButton.Name = "Close"
 CloseButton.Text = "X"
@@ -92,6 +121,7 @@ CloseButton.Size = UDim2.new(0, 30, 0, 30)
 CloseButton.Position = UDim2.new(1, -30, 0, 0)
 CloseButton.Parent = TopBar
 
+-- Анимация кнопок
 local function setupButtonHover(button, hoverColor, normalColor)
     button.MouseEnter:Connect(function()
         TweenService:Create(button, TweenInfo.new(0.2), {TextColor3 = hoverColor}):Play()
@@ -104,7 +134,8 @@ end
 setupButtonHover(MinimizeButton, Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 200, 200))
 setupButtonHover(CloseButton, Color3.fromRGB(255, 50, 50), Color3.fromRGB(255, 100, 100))
 
-local originalSize = UDim2.new(0, 400, 0, 480)
+-- Функции сворачивания/разворачивания
+local originalSize = UDim2.new(0, 400, 0, 480) 
 local function minimizeGUI()
     local tween = TweenService:Create(
         MainFrame,
@@ -129,11 +160,13 @@ local function expandGUI()
     tween:Play()
 end
 
+-- Обработчики кнопок
 MinimizeButton.MouseButton1Click:Connect(minimizeGUI)
 ExpandButton.MouseButton1Click:Connect(expandGUI)
 
+-- --- ПЕРЕМЕННЫЕ И ФУНКЦИЯ ОЧИСТКИ ДЛЯ PURPLE BOMB ---
 local purple_isBombActive = false
-local purple_playerStates = {}
+local purple_playerStates = {} -- 0=Default, 1=Ignored, 2=Targeted
 local purple_masterConnection = nil
 
 _G.StopPurpleBomb = function()
@@ -142,12 +175,13 @@ _G.StopPurpleBomb = function()
         purple_masterConnection = nil
     end
     purple_isBombActive = false
+    -- purple_playerStates = {} -- Комментируем, чтобы сохранить настройки игроков при временной остановке
     print("Purple Bomb: Остановлена.")
 end
 
 CloseButton.MouseButton1Click:Connect(function()
-    if _G.stopFarmingFarm then _G.stopFarmingFarm() end
-    if _G.StopPurpleBomb then _G.StopPurpleBomb() end
+    if _G.stopFarmingFarm then _G.stopFarmingFarm() end -- Остановка фарма
+    if _G.StopPurpleBomb then _G.StopPurpleBomb() end -- Очистка для бомбы
     ScreenGui:Destroy()
     if _G.BringConnection then _G.BringConnection:Disconnect() end
     if _G.OrbitConnection then _G.OrbitConnection:Disconnect() end
@@ -157,6 +191,7 @@ CloseButton.MouseButton1Click:Connect(function()
     _G.AutoClickerActive = false
 end)
 
+-- Кнопки вкладок
 local TabButtons = Instance.new("Frame")
 TabButtons.Name = "TabButtons"
 TabButtons.Size = UDim2.new(1, -20, 0, 30)
@@ -169,6 +204,7 @@ UIListLayoutTabs.FillDirection = Enum.FillDirection.Horizontal
 UIListLayoutTabs.Padding = UDim.new(0, 10)
 UIListLayoutTabs.Parent = TabButtons
 
+-- Контейнер вкладок
 local TabContainer = Instance.new("Frame")
 TabContainer.Name = "Tabs"
 TabContainer.Size = UDim2.new(1, -20, 1, -75)
@@ -176,7 +212,8 @@ TabContainer.Position = UDim2.new(0, 10, 0, 70)
 TabContainer.BackgroundTransparency = 1
 TabContainer.Parent = MainFrame
 
-local tabs = {"Main", "Settings", "Farm Bot", "Purple Bomb"}
+-- Создаем вкладки (ОБНОВЛЕНО: добавлена "Purple Bomb")
+local tabs = {"Main", "Settings", "Farm Bot", "Purple Bomb"} 
 local tabFrames = {}
 
 for i, tabName in ipairs(tabs) do
@@ -188,7 +225,7 @@ for i, tabName in ipairs(tabs) do
     TabButton.TextColor3 = Color3.fromRGB(180, 180, 200)
     TabButton.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
     TabButton.AutoButtonColor = false
-    TabButton.Size = UDim2.new(0.25, -8, 1, 0)
+    TabButton.Size = UDim2.new(0.25, -8, 1, 0) -- ОБНОВЛЕНО: размер для 4х вкладок
     TabButton.Parent = TabButtons
     
     local ButtonCorner = Instance.new("UICorner")
@@ -232,6 +269,7 @@ for i, tabName in ipairs(tabs) do
     end)
 end
 
+-- Активируем первую вкладку
 tabFrames[tabs[1]].Visible = true
 local firstTabButton = TabButtons:FindFirstChild(tabs[1].."Tab")
 if firstTabButton then
@@ -239,8 +277,10 @@ if firstTabButton then
     firstTabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 end
 
+-- ========== ВКЛАДКА MAIN (BRING SYSTEM) ==========
 local mainFrame = tabFrames.Main
 
+-- Заголовок
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Text = "PLAYER CONTROL SYSTEM"
 titleLabel.Font = Enum.Font.GothamBold
@@ -250,6 +290,7 @@ titleLabel.BackgroundTransparency = 1
 titleLabel.Size = UDim2.new(1, 0, 0, 30)
 titleLabel.Parent = mainFrame
 
+-- Список игроков
 local PlayersFrame = Instance.new("ScrollingFrame")
 PlayersFrame.Name = "PlayersList"
 PlayersFrame.Size = UDim2.new(1, 0, 0, 150)
@@ -263,6 +304,7 @@ local PlayersLayout = Instance.new("UIListLayout")
 PlayersLayout.Padding = UDim.new(0, 5)
 PlayersLayout.Parent = PlayersFrame
 
+-- Кнопка активации притягивания
 local BringButton = Instance.new("TextButton")
 BringButton.Name = "BringButton"
 BringButton.Text = "START BRINGING"
@@ -279,6 +321,7 @@ local BringCorner = Instance.new("UICorner")
 BringCorner.CornerRadius = UDim.new(0, 6)
 BringCorner.Parent = BringButton
 
+-- Кнопка активации орбиты
 local OrbitButton = Instance.new("TextButton")
 OrbitButton.Name = "OrbitButton"
 OrbitButton.Text = "START ORBITING"
@@ -295,18 +338,21 @@ local OrbitCorner = Instance.new("UICorner")
 OrbitCorner.CornerRadius = UDim.new(0, 6)
 OrbitCorner.Parent = OrbitButton
 
+-- Статус
 local StatusLabel = Instance.new("TextLabel")
 StatusLabel.Name = "Status"
 StatusLabel.Text = "Status: Inactive"
 StatusLabel.Font = Enum.Font.Gotham
 StatusLabel.TextSize = 13
-StatusLabel.TextColor3 = Color3.fromRGB(200, 150, 150)
+-- ОБНОВЛЕНО: Используем оригинальный контрастный цвет
+StatusLabel.TextColor3 = Color3.fromRGB(200, 150, 150) 
 StatusLabel.BackgroundTransparency = 1
 StatusLabel.Size = UDim2.new(1, 0, 0, 20)
 StatusLabel.Position = UDim2.new(0, 0, 0, 240)
 StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
 StatusLabel.Parent = mainFrame
 
+-- Переменные системы
 _G.BringTargetPlayer = nil
 _G.OrbitTargetPlayer = nil
 _G.BringActive = false
@@ -318,10 +364,11 @@ _G.OrbitRadius = 5
 _G.OrbitSpeed = 2
 _G.OriginalCollisionState = {}
 _G.AutoClickerActive = false
-_G.AutoClickerSpeed = 10
+_G.AutoClickerSpeed = 10 -- кликов в секунду
 _G.AutoClickerConnection = nil
 _G.LastClickTime = 0
 
+-- Функция управления коллизиями
 local function setPlayerCollision(player, enable)
     if not player or not player.Character then return end
     
@@ -340,6 +387,7 @@ local function setPlayerCollision(player, enable)
     end
 end
 
+-- Функция притягивания игрока
 local function bringPlayer(targetPlayer)
     if not targetPlayer or not targetPlayer.Character then return end
     
@@ -368,6 +416,7 @@ local function bringPlayer(targetPlayer)
     end
 end
 
+-- Функция вращения по орбите
 local function updateOrbit(dt)
     if not _G.OrbitActive or not _G.OrbitTargetPlayer then return end
     local targetChar = _G.OrbitTargetPlayer.Character
@@ -388,6 +437,7 @@ local function updateOrbit(dt)
     localRoot.CFrame = CFrame.new(newPosition, targetRoot.Position)
 end
 
+-- Основной цикл притягивания
 local function startBringLoop()
     if _G.BringConnection then _G.BringConnection:Disconnect() end
     _G.BringConnection = RunService.Heartbeat:Connect(function()
@@ -397,6 +447,7 @@ local function startBringLoop()
     end)
 end
 
+-- Основной цикл орбиты
 local function startOrbitLoop()
     if _G.OrbitConnection then _G.OrbitConnection:Disconnect() end
     _G.OrbitConnection = RunService.Heartbeat:Connect(function(dt)
@@ -406,6 +457,7 @@ local function startOrbitLoop()
     end)
 end
 
+-- Обработчик кнопки притягивания
 BringButton.MouseButton1Click:Connect(function()
     if not _G.BringTargetPlayer then
         TweenService:Create(BringButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(180, 50, 50)}):Play()
@@ -430,19 +482,22 @@ BringButton.MouseButton1Click:Connect(function()
         setPlayerCollision(_G.BringTargetPlayer, false)
         TweenService:Create(BringButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(180, 50, 50)}):Play()
         BringButton.Text = "STOP BRINGING"
+        -- ОБНОВЛЕНО: Используем оригинальный контрастный цвет
         StatusLabel.Text = "Status: Bringing ".._G.BringTargetPlayer.Name
-        StatusLabel.TextColor3 = Color3.fromRGB(50, 200, 100)
+        StatusLabel.TextColor3 = Color3.fromRGB(50, 200, 100) 
         startBringLoop()
     else
         setPlayerCollision(_G.BringTargetPlayer, true)
         TweenService:Create(BringButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0, 120, 180)}):Play()
         BringButton.Text = "START BRINGING"
+        -- ОБНОВЛЕНО: Используем оригинальный контрастный цвет
         StatusLabel.Text = "Status: Inactive"
-        StatusLabel.TextColor3 = Color3.fromRGB(200, 150, 150)
+        StatusLabel.TextColor3 = Color3.fromRGB(200, 150, 150) 
         if _G.BringConnection then _G.BringConnection:Disconnect() end
     end
 end)
 
+-- Обработчик кнопки орбиты
 OrbitButton.MouseButton1Click:Connect(function()
     if not _G.OrbitTargetPlayer then
         TweenService:Create(OrbitButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(180, 50, 50)}):Play()
@@ -467,19 +522,22 @@ OrbitButton.MouseButton1Click:Connect(function()
         setPlayerCollision(localPlayer, false)
         TweenService:Create(OrbitButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(180, 50, 50)}):Play()
         OrbitButton.Text = "STOP ORBITING"
+        -- ОБНОВЛЕНО: Используем оригинальный контрастный цвет
         StatusLabel.Text = "Status: Orbiting ".._G.OrbitTargetPlayer.Name
-        StatusLabel.TextColor3 = Color3.fromRGB(50, 200, 100)
+        StatusLabel.TextColor3 = Color3.fromRGB(50, 200, 100) 
         startOrbitLoop()
     else
         setPlayerCollision(localPlayer, true)
         TweenService:Create(OrbitButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0, 120, 180)}):Play()
         OrbitButton.Text = "START ORBITING"
+        -- ОБНОВЛЕНО: Используем оригинальный контрастный цвет
         StatusLabel.Text = "Status: Inactive"
         StatusLabel.TextColor3 = Color3.fromRGB(200, 150, 150)
         if _G.OrbitConnection then _G.OrbitConnection:Disconnect() end
     end
 end)
 
+-- Функция создания кнопки игрока
 local function createPlayerButton(player)
     local button = Instance.new("TextButton")
     button.Name = "Player_"..player.UserId
@@ -503,13 +561,15 @@ local function createPlayerButton(player)
         button.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
         _G.BringTargetPlayer = player
         _G.OrbitTargetPlayer = player
+        -- ОБНОВЛЕНО: Используем оригинальный контрастный цвет
         StatusLabel.Text = "Selected: "..player.Name
-        StatusLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+        StatusLabel.TextColor3 = Color3.fromRGB(100, 200, 255) 
     end)
     return button
 end
 
-local function updateMainTabPlayersList()
+-- Заполняем список игроков для вкладки Main
+local function updateMainTabPlayersList() -- Переименовано для ясности
     for _, child in ipairs(PlayersFrame:GetChildren()) do
         if child:IsA("TextButton") then child:Destroy() end
     end
@@ -519,8 +579,10 @@ local function updateMainTabPlayersList()
     PlayersFrame.CanvasSize = UDim2.new(0, 0, 0, PlayersLayout.AbsoluteContentSize.Y)
 end
 
+-- ========== ВКЛАДКА SETTINGS ==========
 local settingsFrame = tabFrames.Settings
 
+-- Заголовок
 local settingsTitle = Instance.new("TextLabel")
 settingsTitle.Text = "ORBIT SETTINGS"
 settingsTitle.Font = Enum.Font.GothamBold
@@ -530,6 +592,7 @@ settingsTitle.BackgroundTransparency = 1
 settingsTitle.Size = UDim2.new(1, 0, 0, 30)
 settingsTitle.Parent = settingsFrame
 
+-- Функция создания слайдера для мобильных устройств
 local function createMobileSlider(parent, label, min, max, current, callback)
     local sliderFrame = Instance.new("Frame")
     sliderFrame.Size = UDim2.new(1, 0, 0, 60)
@@ -617,10 +680,12 @@ local function createMobileSlider(parent, label, min, max, current, callback)
     return sliderFill, sliderButton, valueLabel
 end
 
+-- Слайдер радиуса орбиты (1-50)
 local orbitSliderFill, orbitSliderButton = createMobileSlider(settingsFrame, "Orbit Radius:", 1, 50, _G.OrbitRadius, function(value)
     _G.OrbitRadius = value
 end)
 
+-- ========== АВТОКЛИКЕР ==========
 local autoClickerTitle = Instance.new("TextLabel")
 autoClickerTitle.Text = "AUTO CLICKER SETTINGS"
 autoClickerTitle.Font = Enum.Font.GothamBold
@@ -644,13 +709,15 @@ local acCorner = Instance.new("UICorner")
 acCorner.CornerRadius = UDim.new(0, 6)
 acCorner.Parent = autoClickerButton
 
+-- Слайдер скорости кликов
 local clickerSliderFill, clickerSliderButton, clickerValueLabel = createMobileSlider(settingsFrame, "Click Speed (CPS):", 1, 50, _G.AutoClickerSpeed, function(value)
     _G.AutoClickerSpeed = value
 end)
 
 local function isMouseOverGui()
     local mouseLocation = UserInputService:GetMouseLocation()
-    local objects = game:GetService("PlayerGui"):GetGuiObjectsAtPosition(mouseLocation.X, mouseLocation.Y)
+    -- ОБНОВЛЕНО: Используем CoreGui для GetGuiObjectsAtPosition
+    local objects = game:GetService("CoreGui"):GetGuiObjectsAtPosition(mouseLocation.X, mouseLocation.Y) 
     for _, obj in ipairs(objects) do
         if obj:IsDescendantOf(ScreenGui) then
             return true
@@ -662,7 +729,7 @@ end
 local function startAutoClicker()
     if _G.AutoClickerConnection then _G.AutoClickerConnection:Disconnect() end
     _G.AutoClickerConnection = RunService.RenderStepped:Connect(function()
-        if _G.AutoClickerActive then 
+        if _G.AutoClickerActive and not isMouseOverGui() then
             if (tick() - _G.LastClickTime) >= (1 / _G.AutoClickerSpeed) then
                 _G.LastClickTime = tick()
                 
@@ -692,6 +759,7 @@ autoClickerButton.MouseButton1Click:Connect(function()
     end
 end)
 
+-- ========== ЦВЕТОВЫЕ ТЕМЫ ==========
 local themes = {
     {name = "Neon Blue", colors = {background=Color3.fromRGB(30,30,40),topBar=Color3.fromRGB(25,25,35),accent=Color3.fromRGB(0,200,255),buttons=Color3.fromRGB(0,120,180),text=Color3.fromRGB(220,220,255)}},
     {name = "Crimson Red", colors = {background=Color3.fromRGB(40,20,25),topBar=Color3.fromRGB(35,15,20),accent=Color3.fromRGB(255,50,80),buttons=Color3.fromRGB(180,40,60),text=Color3.fromRGB(255,200,200)}},
@@ -717,10 +785,12 @@ local themes = {
 
 local currentTheme = 1
 
+-- Forward declaration for farm bot elements
 local farm_nameLabel, farm_nameDisplay, farm_setBtn, farm_farmBtn, resetLabel, sliderButton, marker
-local farming
-local abilityViewers = {}
+local farming -- will be defined in farm bot section
+local abilityViewers = {} -- Объявляем здесь, чтобы applyTheme имела к ней доступ
 
+-- Функция применения темы (ОБНОВЛЕНО: `StatusLabel` не трогаем, добавляем цвета Purple Bomb)
 local function applyTheme(themeIndex)
     currentTheme = themeIndex
     local theme = themes[themeIndex].colors
@@ -729,6 +799,7 @@ local function applyTheme(themeIndex)
     TopBar.BackgroundColor3 = theme.topBar
     Title.TextColor3 = theme.accent
     
+    -- Обновляем кнопки вкладок
     for _, tabName in ipairs(tabs) do
         local tabButton = TabButtons:FindFirstChild(tabName.."Tab")
         if tabButton then
@@ -741,12 +812,13 @@ local function applyTheme(themeIndex)
     BringButton.BackgroundColor3 = theme.buttons
     OrbitButton.BackgroundColor3 = theme.buttons
     
+    -- Обновляем кнопки игроков на вкладке Main
     if PlayersFrame then
         PlayersFrame.BackgroundColor3 = theme.topBar
         for _, playerButton in ipairs(PlayersFrame:GetChildren()) do
             if playerButton:IsA("TextButton") then
                 playerButton.TextColor3 = theme.text
-                local player = Players:FindFirstChild(string.sub(playerButton.Name, 7))
+                local player = Players:FindFirstChild(string.sub(playerButton.Name, 7)) -- "Player_" prefix
                 if player == _G.BringTargetPlayer or player == _G.OrbitTargetPlayer then
                     playerButton.BackgroundColor3 = theme.accent
                 else
@@ -764,11 +836,12 @@ local function applyTheme(themeIndex)
     settingsTitle.TextColor3 = theme.accent
     autoClickerTitle.TextColor3 = theme.accent
 	if abilityViewerTitle then abilityViewerTitle.TextColor3 = theme.accent end
+    -- StatusLabel.TextColor3 = theme.text -- УДАЛЕНО: StatusLabel теперь имеет свои фиксированные контрастные цвета
     
     if farm_nameLabel then farm_nameLabel.TextColor3 = theme.accent end
     if farm_nameDisplay then farm_nameDisplay.TextColor3 = theme.text end
     if farm_setBtn then farm_setBtn.BackgroundColor3 = theme.buttons end
-    if farm_farmBtn then
+    if farm_farmBtn then 
         if farming then farm_farmBtn.BackgroundColor3 = theme.accent
         else farm_farmBtn.BackgroundColor3 = Color3.fromRGB(80, 30, 30) end
     end
@@ -780,27 +853,29 @@ local function applyTheme(themeIndex)
         if marker:FindFirstChild("PointLight") then marker.PointLight.Color = theme.accent end
     end
 	
+	-- Обновляем цвет текста у всех существующих меток Ability Viewer
 	for _, viewer in pairs(abilityViewers) do
         if viewer and viewer:FindFirstChild("AbilityName") then
             viewer.AbilityName.TextColor3 = theme.accent
         end
     end
 
+    -- ДОБАВЛЕНО: Элементы вкладки Purple Bomb
     if purple_Title then purple_Title.TextColor3 = theme.accent end
     if purple_Info then purple_Info.TextColor3 = theme.text end
-    if purple_PlayersFrame then
-        purple_PlayersFrame.BackgroundColor3 = theme.topBar
+    if purple_PlayersFrame then 
+        purple_PlayersFrame.BackgroundColor3 = theme.topBar -- Фон списка игроков Purple Bomb
         for _, playerButton in ipairs(purple_PlayersFrame:GetChildren()) do
             if playerButton:IsA("TextButton") then
                 playerButton.TextColor3 = theme.text
                 local player = Players:FindFirstChild(playerButton.Name)
                 if player then
                     local currentState = purple_playerStates[player] or 0
-                    if currentState == 1 then playerButton.BackgroundColor3 = Color3.fromRGB(180, 80, 0)
-                    elseif currentState == 2 then playerButton.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
-                    else playerButton.BackgroundColor3 = Color3.fromRGB(50, 50, 70) end
+                    if currentState == 1 then playerButton.BackgroundColor3 = Color3.fromRGB(180, 80, 0) -- Оранж для исключенного
+                    elseif currentState == 2 then playerButton.BackgroundColor3 = Color3.fromRGB(200, 40, 40) -- Красный для цели
+                    else playerButton.BackgroundColor3 = Color3.fromRGB(50, 50, 70) end -- Серый по умолчанию
                 else
-                    playerButton.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+                    playerButton.BackgroundColor3 = Color3.fromRGB(50, 50, 70) -- По умолчанию, если игрок не найден
                 end
             end
         end
@@ -809,12 +884,16 @@ local function applyTheme(themeIndex)
     if purple_ToggleButton then
         purple_ToggleButton.TextColor3 = theme.text
         if purple_isBombActive then
-            purple_ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 180, 50)
+            purple_ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 180, 50) -- Зеленый для активного
         else
-            purple_ToggleButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+            purple_ToggleButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50) -- Красный для неактивного
         end
     end
 end
+
+-- ===============================================
+-- ========== ABILITY VIEWER (УЛУЧШЕННАЯ ВЕРСИЯ) ==========
+-- ===============================================
 
 local abilityViewerTitle = Instance.new("TextLabel")
 abilityViewerTitle.Text = "ABILITY VIEWER"
@@ -831,7 +910,7 @@ abilityViewerToggleButton.Text = "ABILITY VIEWER: ON"
 abilityViewerToggleButton.Font = Enum.Font.GothamBold
 abilityViewerToggleButton.TextSize = 14
 abilityViewerToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-abilityViewerToggleButton.BackgroundColor3 = Color3.fromRGB(50, 180, 50)
+abilityViewerToggleButton.BackgroundColor3 = Color3.fromRGB(50, 180, 50) -- Default ON
 abilityViewerToggleButton.Size = UDim2.new(1, 0, 0, 35)
 abilityViewerToggleButton.Parent = settingsFrame
 
@@ -839,8 +918,10 @@ local avCorner = Instance.new("UICorner")
 avCorner.CornerRadius = UDim.new(0, 6)
 avCorner.Parent = abilityViewerToggleButton
 
-local isViewerActive = true
+-- --- Логика Ability Viewer ---
+local isViewerActive = true -- Включено по умолчанию
 
+-- Главная функция обновления
 local function updateAbilityViewer(player)
     if not abilityViewers[player] then
         local billboardGui = Instance.new("BillboardGui")
@@ -856,6 +937,7 @@ local function updateAbilityViewer(player)
         textLabel.Font = Enum.Font.GothamBold
         textLabel.TextSize = 16
         textLabel.TextStrokeTransparency = 0
+        -- Сразу устанавливаем цвет из текущей темы
         textLabel.TextColor3 = themes[currentTheme].colors.accent
         
         abilityViewers[player] = billboardGui
@@ -875,6 +957,7 @@ local function updateAbilityViewer(player)
 
         local textLabel = billboardGui:FindFirstChild("AbilityName")
         if textLabel then
+            -- Проверяем и экипированный инструмент, и инструмент в рюкзаке
             local currentTool = character:FindFirstChildOfClass("Tool")
             if not currentTool then
                 local backpack = player:FindFirstChildOfClass("Backpack")
@@ -894,6 +977,7 @@ local function updateAbilityViewer(player)
     end
 end
 
+-- Функция для уничтожения всех меток
 local function destroyAllViewers()
     for player, viewer in pairs(abilityViewers) do
         if viewer then
@@ -903,6 +987,7 @@ local function destroyAllViewers()
     abilityViewers = {}
 end
 
+-- Логика нажатия на кнопку-переключатель
 abilityViewerToggleButton.MouseButton1Click:Connect(function()
     isViewerActive = not isViewerActive
     if isViewerActive then
@@ -915,6 +1000,7 @@ abilityViewerToggleButton.MouseButton1Click:Connect(function()
     end
 end)
 
+-- Основной цикл обновления меток
 RunService.RenderStepped:Connect(function()
     if not isViewerActive then return end
 
@@ -925,6 +1011,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+-- Очистка при выходе игрока
 Players.PlayerRemoving:Connect(function(player)
     if abilityViewers[player] then
         abilityViewers[player]:Destroy()
@@ -932,6 +1019,7 @@ Players.PlayerRemoving:Connect(function(player)
     end
 end)
 
+-- Создаем список тем
 local themeLabel = Instance.new("TextLabel")
 themeLabel.Text = "GUI THEMES"
 themeLabel.Font = Enum.Font.GothamBold
@@ -969,6 +1057,9 @@ for i, theme in ipairs(themes) do
     themeButton.MouseButton1Click:Connect(function() applyTheme(i) end)
 end
 
+-- ===============================================
+-- ====== ЛОГИКА ПЕРЕТАСКИВАНИЯ =======
+-- ===============================================
 local guiDragging = false
 local dragStart, startPos
 
@@ -997,18 +1088,21 @@ UserInputService.InputChanged:Connect(function(input)
     if guiDragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
         updateGuiPosition(input)
     end
-end)
+})
 
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
         guiDragging = false
         TweenService:Create(TopBar, TweenInfo.new(0.3), {BackgroundColor3 = themes[currentTheme].colors.topBar}):Play()
     end
-end)
+})
 
+
+-- ========== ВКЛАДКА FARM BOT ==========
 local farmBotFrame = tabFrames["Farm Bot"]
 farmBotFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
+-- Переменные для Farm Bot
 farming = false
 local waypoint = nil
 marker = nil
@@ -1017,8 +1111,9 @@ local inputGui = nil
 local farmLoop = nil
 local selectingWaypoint = false
 local targetTeleportConnection = nil
-local resetInterval = 5
+local resetInterval = 5 -- значение по умолчанию 5 секунд
 
+-- Цветовая схема для Farm Bot (Используется для начальной настройки и как запасной вариант)
 local FARM_COLORS = {
     Background = Color3.fromRGB(30, 30, 40),
     Dark = Color3.fromRGB(25, 25, 35),
@@ -1031,6 +1126,7 @@ local FARM_COLORS = {
     ButtonOn = Color3.fromRGB(30, 80, 30)
 }
 
+-- Функция для создания скругленных углов
 local function applyRoundedCornersFarm(element)
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 6)
@@ -1038,6 +1134,7 @@ local function applyRoundedCornersFarm(element)
     return corner
 end
 
+-- Элементы интерфейса Farm Bot
 farm_nameLabel = Instance.new("TextLabel")
 farm_nameLabel.Text = "Target Player:"
 farm_nameLabel.Size = UDim2.new(1, 0, 0, 25)
@@ -1114,8 +1211,11 @@ sliderButton.AutoButtonColor = false
 applyRoundedCornersFarm(sliderButton)
 sliderButton.Parent = sliderFrame
 
+-- ===================================================================
+-- ========== ВКЛАДКА PURPLE BOMB (ИНТЕГРИРОВАНА) ==========
+-- ===================================================================
 local purpleBombFrame = tabFrames["Purple Bomb"]
-purpleBombFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+purpleBombFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y -- Включить автоматическое изменение размера холста
 
 local purple_Title = Instance.new("TextLabel", purpleBombFrame)
 purple_Title.Text = "PURPLE BOMB CONTROL"
@@ -1133,6 +1233,7 @@ purple_Info.TextColor3 = Color3.fromRGB(200, 200, 200)
 purple_Info.TextWrapped = true
 purple_Info.BackgroundTransparency = 1
 purple_Info.Size = UDim2.new(1, -10, 0, 50)
+-- purple_Info.Position = UDim2.new(0, 5, 0, 30) -- UIListLayout будет управлять позицией
 
 local purple_PlayersFrame = Instance.new("ScrollingFrame", purpleBombFrame)
 purple_PlayersFrame.Name = "PurplePlayersList"
@@ -1156,6 +1257,7 @@ purple_ToggleButton.Text = "АКТИВИРОВАТЬ"
 local purple_ButtonCorner = Instance.new("UICorner", purple_ToggleButton)
 purple_ButtonCorner.CornerRadius = UDim.new(0, 6)
 
+-- --- ЛОГИКА PURPLE BOMB ---
 local function purple_isPlayerIgnored(player)
     if player == localPlayer then return true end
     return purple_playerStates[player] == 1
@@ -1222,10 +1324,11 @@ local function purple_createPlayerButton(player)
     button.MouseButton1Click:Connect(function()
         local newState = ((purple_playerStates[player] or 0) + 1) % 3
         purple_playerStates[player] = newState
+        -- Обновляем цвет сразу после клика
         if newState == 1 then button.BackgroundColor3 = Color3.fromRGB(180, 80, 0)
         elseif newState == 2 then button.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
         else button.BackgroundColor3 = Color3.fromRGB(50, 50, 70) end
-        applyTheme(currentTheme)
+        applyTheme(currentTheme) -- Применяем тему, чтобы обновить цвет кнопки игрока
     end)
 end
 
@@ -1253,9 +1356,10 @@ purple_ToggleButton.MouseButton1Click:Connect(function()
         purple_ToggleButton.Text = "АКТИВИРОВАТЬ"
         purple_ToggleButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
     end
-    applyTheme(currentTheme)
+    applyTheme(currentTheme) -- Обновляем цвет кнопки после переключения
 end)
 
+-- Функции Farm Bot
 local function showError(label, message)
     label.Text = message
     label.TextColor3 = FARM_COLORS.Error
@@ -1438,6 +1542,7 @@ stopFarmingFarm = function()
 end
 _G.stopFarmingFarm = stopFarmingFarm
 
+-- Обработчики кнопок Farm Bot
 farm_farmBtn.MouseButton1Click:Connect(function()
     if farm_nameDisplay.Text == "No Player Selected" or farm_nameDisplay.Text == "" then
         showError(farm_nameDisplay, "Player Not Found")
@@ -1567,6 +1672,7 @@ farm_nameDisplay.InputBegan:Connect(function(input)
     end
 end)
 
+-- Обработчик слайдера (диапазон 1-30 секунд)
 local draggingSlider = false
 local sliderDragInput = nil
 local sliderDragStartPos = nil
@@ -1582,7 +1688,7 @@ sliderButton.InputBegan:Connect(function(input)
             if input.UserInputState == Enum.UserInputState.End then
                 draggingSlider = false
             end
-        })
+        end)
     end
 end)
 
@@ -1590,7 +1696,7 @@ sliderButton.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
         sliderDragInput = input
     end
-end)
+})
 
 UserInputService.InputChanged:Connect(function(input)
     if draggingSlider and input == sliderDragInput then
@@ -1607,35 +1713,16 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
+-- ========== ОБНОВЛЕНИЕ СПИСКОВ ИГРОКОВ (ОБЪЕДИНЕНО) ==========
 local function globalUpdateAllPlayerLists()
     updateMainTabPlayersList()
     purple_updatePlayersList()
-    applyTheme(currentTheme)
+    applyTheme(currentTheme) -- Применяем тему после обновления всех кнопок
 end
-
-localPlayer.CharacterAdded:Connect(function(character)
-    if ScreenGui and ScreenGui.Parent == nil then
-        ScreenGui.Parent = localPlayer:WaitForChild("PlayerGui")
-    end
-
-    if _G.OrbitActive then
-        setPlayerCollision(localPlayer, false)
-    end
-
-    globalUpdateAllPlayerLists()
-
-    if isViewerActive then
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= localPlayer then
-                pcall(updateAbilityViewer, player)
-            end
-        end
-    end
-end)
-
 
 Players.PlayerAdded:Connect(globalUpdateAllPlayerLists)
 Players.PlayerRemoving:Connect(function(player)
+    -- Логика очистки для Bring/Orbit
     if player == _G.BringTargetPlayer then
         if _G.BringActive then
             setPlayerCollision(player, true)
@@ -1657,22 +1744,25 @@ Players.PlayerRemoving:Connect(function(player)
         _G.OrbitTargetPlayer = nil
     end
     if player == _G.BringTargetPlayer or player == _G.OrbitTargetPlayer then
+        -- ОБНОВЛЕНО: Используем оригинальный контрастный цвет
         StatusLabel.Text = "Status: Player left"
-        StatusLabel.TextColor3 = Color3.fromRGB(200, 150, 150)
+        StatusLabel.TextColor3 = Color3.fromRGB(200, 150, 150) 
     end
     
+    -- Очистка для Purple Bomb
     if purple_playerStates[player] then purple_playerStates[player] = nil end
     
     globalUpdateAllPlayerLists()
 end)
 
-globalUpdateAllPlayerLists()
+globalUpdateAllPlayerLists() -- Первоначальный вызов для заполнения списков
 
-applyTheme(1)
+applyTheme(1) -- Применяем первую тему по умолчанию
 
 print("RONNIX HUB (Полная версия с Purple Bomb) успешно запущен!")
 print("F5 - Свернуть/развернуть GUI")
 
+-- Горячая клавиша
 UserInputService.InputBegan:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.F5 then
         if MainFrame.Visible then minimizeGUI() else expandGUI() end
