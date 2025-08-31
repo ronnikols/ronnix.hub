@@ -1,3 +1,15 @@
+-- ===================================================================
+--    RONNIX HUB
+--    Финальная версия с улучшенным Ability Viewer (инвентарь + синхронизация цвета)
+--    Интегрирована вкладка "Purple Bomb".
+--    Размер GUI восстановлен до оригинального.
+--    Цвета текста StatusLabel на вкладке Main сделаны более контрастными.
+-- ===================================================================
+
+-- Ожидаем, пока игра будет готова
+if game.Loaded then task.wait() else game.Loaded:Wait() end
+
+-- Сервисы
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
@@ -20,14 +32,14 @@ _G.RONNIXHUB = {} -- Инициализируем _G.RONNIXHUB
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "RONNIXHUB"
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
--- Родитель изменен на PlayerGui для стабильности (как в версии Purple Bomb)
+-- Родитель изменен на PlayerGui для стабильности
 ScreenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 _G.RONNIXHUB.ScreenGui = ScreenGui -- Присваиваем ScreenGui к _G.RONNIXHUB
 
--- UIScale для адаптации к размерам экрана (для телефонов) (как в версии Purple Bomb)
-local UIScale = Instance.new("UIScale")
-UIScale.Scale = 0.8 -- Можно настроить это значение, чтобы GUI был больше/меньше
-UIScale.Parent = ScreenGui
+-- UIScale для адаптации к размерам экрана (для телефонов) (УДАЛЕНО: чтобы вернуть оригинальный размер)
+-- local UIScale = Instance.new("UIScale")
+-- UIScale.Scale = 0.8
+-- UIScale.Parent = ScreenGui
 
 
 -- Кнопка для разворачивания
@@ -122,7 +134,7 @@ setupButtonHover(MinimizeButton, Color3.fromRGB(255, 255, 255), Color3.fromRGB(2
 setupButtonHover(CloseButton, Color3.fromRGB(255, 50, 50), Color3.fromRGB(255, 100, 100))
 
 -- Функции сворачивания/разворачивания
-local originalSize = UDim2.new(0, 400, 0, 480) -- Добавлено из версии Purple Bomb
+local originalSize = UDim2.new(0, 400, 0, 480) 
 local function minimizeGUI()
     local tween = TweenService:Create(
         MainFrame,
@@ -168,7 +180,7 @@ end
 
 CloseButton.MouseButton1Click:Connect(function()
     if _G.stopFarmingFarm then _G.stopFarmingFarm() end -- Остановка фарма
-    if _G.StopPurpleBomb then _G.StopPurpleBomb() end -- Очистка для бомбы (ДОБАВЛЕНО)
+    if _G.StopPurpleBomb then _G.StopPurpleBomb() end -- Очистка для бомбы
     ScreenGui:Destroy()
     if _G.BringConnection then _G.BringConnection:Disconnect() end
     if _G.OrbitConnection then _G.OrbitConnection:Disconnect() end
@@ -331,7 +343,8 @@ StatusLabel.Name = "Status"
 StatusLabel.Text = "Status: Inactive"
 StatusLabel.Font = Enum.Font.Gotham
 StatusLabel.TextSize = 13
-StatusLabel.TextColor3 = Color3.fromRGB(200, 150, 150)
+-- ОБНОВЛЕНО: Используем оригинальный контрастный цвет
+StatusLabel.TextColor3 = Color3.fromRGB(200, 150, 150) 
 StatusLabel.BackgroundTransparency = 1
 StatusLabel.Size = UDim2.new(1, 0, 0, 20)
 StatusLabel.Position = UDim2.new(0, 0, 0, 240)
@@ -468,15 +481,17 @@ BringButton.MouseButton1Click:Connect(function()
         setPlayerCollision(_G.BringTargetPlayer, false)
         TweenService:Create(BringButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(180, 50, 50)}):Play()
         BringButton.Text = "STOP BRINGING"
+        -- ОБНОВЛЕНО: Используем оригинальный контрастный цвет
         StatusLabel.Text = "Status: Bringing ".._G.BringTargetPlayer.Name
-        StatusLabel.TextColor3 = Color3.fromRGB(50, 200, 100)
+        StatusLabel.TextColor3 = Color3.fromRGB(50, 200, 100) 
         startBringLoop()
     else
         setPlayerCollision(_G.BringTargetPlayer, true)
         TweenService:Create(BringButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0, 120, 180)}):Play()
         BringButton.Text = "START BRINGING"
+        -- ОБНОВЛЕНО: Используем оригинальный контрастный цвет
         StatusLabel.Text = "Status: Inactive"
-        StatusLabel.TextColor3 = Color3.fromRGB(200, 150, 150)
+        StatusLabel.TextColor3 = Color3.fromRGB(200, 150, 150) 
         if _G.BringConnection then _G.BringConnection:Disconnect() end
     end
 end)
@@ -506,13 +521,15 @@ OrbitButton.MouseButton1Click:Connect(function()
         setPlayerCollision(localPlayer, false)
         TweenService:Create(OrbitButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(180, 50, 50)}):Play()
         OrbitButton.Text = "STOP ORBITING"
+        -- ОБНОВЛЕНО: Используем оригинальный контрастный цвет
         StatusLabel.Text = "Status: Orbiting ".._G.OrbitTargetPlayer.Name
-        StatusLabel.TextColor3 = Color3.fromRGB(50, 200, 100)
+        StatusLabel.TextColor3 = Color3.fromRGB(50, 200, 100) 
         startOrbitLoop()
     else
         setPlayerCollision(localPlayer, true)
         TweenService:Create(OrbitButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0, 120, 180)}):Play()
         OrbitButton.Text = "START ORBITING"
+        -- ОБНОВЛЕНО: Используем оригинальный контрастный цвет
         StatusLabel.Text = "Status: Inactive"
         StatusLabel.TextColor3 = Color3.fromRGB(200, 150, 150)
         if _G.OrbitConnection then _G.OrbitConnection:Disconnect() end
@@ -543,8 +560,9 @@ local function createPlayerButton(player)
         button.BackgroundColor3 = Color3.fromRGB(0, 150, 200)
         _G.BringTargetPlayer = player
         _G.OrbitTargetPlayer = player
+        -- ОБНОВЛЕНО: Используем оригинальный контрастный цвет
         StatusLabel.Text = "Selected: "..player.Name
-        StatusLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+        StatusLabel.TextColor3 = Color3.fromRGB(100, 200, 255) 
     end)
     return button
 end
@@ -770,7 +788,7 @@ local farm_nameLabel, farm_nameDisplay, farm_setBtn, farm_farmBtn, resetLabel, s
 local farming -- will be defined in farm bot section
 local abilityViewers = {} -- Объявляем здесь, чтобы applyTheme имела к ней доступ
 
--- Функция применения темы (ОБНОВЛЕНО: добавлены элементы Purple Bomb)
+-- Функция применения темы (ОБНОВЛЕНО: `StatusLabel` не трогаем, добавляем цвета Purple Bomb)
 local function applyTheme(themeIndex)
     currentTheme = themeIndex
     local theme = themes[themeIndex].colors
@@ -816,7 +834,7 @@ local function applyTheme(themeIndex)
     settingsTitle.TextColor3 = theme.accent
     autoClickerTitle.TextColor3 = theme.accent
 	if abilityViewerTitle then abilityViewerTitle.TextColor3 = theme.accent end
-    StatusLabel.TextColor3 = theme.text
+    -- StatusLabel.TextColor3 = theme.text -- УДАЛЕНО: StatusLabel теперь имеет свои фиксированные контрастные цвета
     
     if farm_nameLabel then farm_nameLabel.TextColor3 = theme.accent end
     if farm_nameDisplay then farm_nameDisplay.TextColor3 = theme.text end
@@ -1068,14 +1086,14 @@ UserInputService.InputChanged:Connect(function(input)
     if guiDragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
         updateGuiPosition(input)
     end
-end)
+})
 
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
         guiDragging = false
         TweenService:Create(TopBar, TweenInfo.new(0.3), {BackgroundColor3 = themes[currentTheme].colors.topBar}):Play()
     end
-end)
+})
 
 
 -- ========== ВКЛАДКА FARM BOT ==========
@@ -1676,7 +1694,7 @@ sliderButton.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
         sliderDragInput = input
     end
-end)
+})
 
 UserInputService.InputChanged:Connect(function(input)
     if draggingSlider and input == sliderDragInput then
@@ -1724,8 +1742,9 @@ Players.PlayerRemoving:Connect(function(player)
         _G.OrbitTargetPlayer = nil
     end
     if player == _G.BringTargetPlayer or player == _G.OrbitTargetPlayer then
+        -- ОБНОВЛЕНО: Используем оригинальный контрастный цвет
         StatusLabel.Text = "Status: Player left"
-        StatusLabel.TextColor3 = Color3.fromRGB(200, 150, 150)
+        StatusLabel.TextColor3 = Color3.fromRGB(200, 150, 150) 
     end
     
     -- Очистка для Purple Bomb
