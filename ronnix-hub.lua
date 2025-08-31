@@ -1,13 +1,3 @@
--- ===================================================================
---    RONNIX HUB
---    Финальная версия с улучшенным Ability Viewer (инвентарь + синхронизация цвета)
---    Интегрирована вкладка "Purple Bomb".
--- ===================================================================
-
--- Ожидаем, пока игра будет готова
-if game.Loaded then task.wait() else game.Loaded:Wait() end
-
--- Сервисы
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
