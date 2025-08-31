@@ -963,4 +963,718 @@ for i, theme in ipairs(themes) do
     themeButton.Parent = themeScroller
     
     local themeCorner = Instance.new("UICorner")
-    themeCorner.CornerRadius = UDim.new(0, 
+    themeCorner.CornerRadius = UDim.new(0, 6)
+    themeCorner.Parent = themeButton
+    
+    themeButton.MouseButton1Click:Connect(function() applyTheme(i) end)
+end
+
+local guiDragging = false
+local dragStart, startPos
+
+local function updateGuiPosition(input)
+    if guiDragging then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end
+
+TopBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        guiDragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        TweenService:Create(TopBar, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 35, 50)}):Play()
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if guiDragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+        updateGuiPosition(input)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        guiDragging = false
+        TweenService:Create(TopBar, TweenInfo.new(0.3), {BackgroundColor3 = themes[currentTheme].colors.topBar}):Play()
+    end
+end)
+
+local farmBotFrame = tabFrames["Farm Bot"]
+farmBotFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+farming = false
+local waypoint = nil
+marker = nil
+local targetName = ""
+local inputGui = nil
+local farmLoop = nil
+local selectingWaypoint = false
+local targetTeleportConnection = nil
+local resetInterval = 5
+
+local FARM_COLORS = {
+    Background = Color3.fromRGB(30, 30, 40),
+    Dark = Color3.fromRGB(25, 25, 35),
+    Primary = Color3.fromRGB(0, 200, 255),
+    Secondary = Color3.fromRGB(0, 150, 180),
+    Text = Color3.fromRGB(240, 240, 240),
+    Warning = Color3.fromRGB(255, 150, 0),
+    Error = Color3.fromRGB(255, 50, 50),
+    ButtonOff = Color3.fromRGB(80, 30, 30),
+    ButtonOn = Color3.fromRGB(30, 80, 30)
+}
+
+local function applyRoundedCornersFarm(element)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = element
+    return corner
+end
+
+farm_nameLabel = Instance.new("TextLabel")
+farm_nameLabel.Text = "Target Player:"
+farm_nameLabel.Size = UDim2.new(1, 0, 0, 25)
+farm_nameLabel.BackgroundTransparency = 1
+farm_nameLabel.TextColor3 = FARM_COLORS.Text
+farm_nameLabel.Font = Enum.Font.Gotham
+farm_nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+farm_nameLabel.Position = UDim2.new(0, 5, 0, 5)
+farm_nameLabel.Parent = farmBotFrame
+
+farm_nameDisplay = Instance.new("TextLabel")
+farm_nameDisplay.Text = "No Player Selected"
+farm_nameDisplay.TextColor3 = FARM_COLORS.Text
+farm_nameDisplay.BackgroundTransparency = 0.7
+farm_nameDisplay.Size = UDim2.new(1, 0, 0, 45)
+farm_nameDisplay.Position = UDim2.new(0, 0, 0, 30)
+farm_nameDisplay.BackgroundColor3 = FARM_COLORS.Dark
+farm_nameDisplay.Font = Enum.Font.Gotham
+farm_nameDisplay.TextSize = 18
+farm_nameDisplay.TextXAlignment = Enum.TextXAlignment.Center
+farm_nameDisplay.TextYAlignment = Enum.TextYAlignment.Center
+farm_nameDisplay.Active = true
+applyRoundedCornersFarm(farm_nameDisplay)
+farm_nameDisplay.Parent = farmBotFrame
+
+farm_setBtn = Instance.new("TextButton")
+farm_setBtn.Text = "Set Waypoint"
+farm_setBtn.Size = UDim2.new(1, 0, 0, 45)
+farm_setBtn.Position = UDim2.new(0, 0, 0, 85)
+farm_setBtn.BackgroundColor3 = FARM_COLORS.Secondary
+farm_setBtn.Font = Enum.Font.GothamBold
+farm_setBtn.TextColor3 = FARM_COLORS.Text
+farm_setBtn.TextSize = 18
+applyRoundedCornersFarm(farm_setBtn)
+farm_setBtn.Parent = farmBotFrame
+
+farm_farmBtn = Instance.new("TextButton")
+farm_farmBtn.Text = "Anti-Cheat: OFF"
+farm_farmBtn.Size = UDim2.new(1, 0, 0, 45)
+farm_farmBtn.Position = UDim2.new(0, 0, 0, 135)
+farm_farmBtn.BackgroundColor3 = FARM_COLORS.ButtonOff
+farm_farmBtn.Font = Enum.Font.GothamBold
+farm_farmBtn.TextColor3 = FARM_COLORS.Text
+farm_farmBtn.TextSize = 18
+applyRoundedCornersFarm(farm_farmBtn)
+farm_farmBtn.Parent = farmBotFrame
+
+resetLabel = Instance.new("TextLabel")
+resetLabel.Size = UDim2.new(1, -20, 0, 30)
+resetLabel.Position = UDim2.new(0, 10, 0, 190)
+resetLabel.BackgroundTransparency = 1
+resetLabel.TextColor3 = FARM_COLORS.Text
+resetLabel.Font = Enum.Font.Gotham
+resetLabel.TextSize = 18
+resetLabel.Text = "Reset interval: "..resetInterval.." sec"
+resetLabel.TextXAlignment = Enum.TextXAlignment.Left
+resetLabel.Parent = farmBotFrame
+
+local sliderFrame = Instance.new("Frame")
+sliderFrame.Size = UDim2.new(0.9, 0, 0, 20)
+sliderFrame.Position = UDim2.new(0.05, 0, 0, 225)
+sliderFrame.BackgroundColor3 = FARM_COLORS.Dark
+sliderFrame.BorderSizePixel = 0
+applyRoundedCornersFarm(sliderFrame)
+sliderFrame.Parent = farmBotFrame
+
+sliderButton = Instance.new("TextButton")
+sliderButton.Size = UDim2.new(0, 25, 1, 0)
+sliderButton.Position = UDim2.new((resetInterval - 1)/29, 0, 0, 0)
+sliderButton.BackgroundColor3 = FARM_COLORS.Primary
+sliderButton.BorderSizePixel = 0
+sliderButton.Text = ""
+sliderButton.AutoButtonColor = false
+applyRoundedCornersFarm(sliderButton)
+sliderButton.Parent = sliderFrame
+
+local purpleBombFrame = tabFrames["Purple Bomb"]
+purpleBombFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+local purple_Title = Instance.new("TextLabel", purpleBombFrame)
+purple_Title.Text = "PURPLE BOMB CONTROL"
+purple_Title.Font = Enum.Font.GothamBold
+purple_Title.TextSize = 16
+purple_Title.TextColor3 = Color3.fromRGB(170, 0, 255)
+purple_Title.BackgroundTransparency = 1
+purple_Title.Size = UDim2.new(1, 0, 0, 30)
+
+local purple_Info = Instance.new("TextLabel", purpleBombFrame)
+purple_Info.Text = "Клик 1: Исключить (Оранж). Клик 2: Сделать целью (Красный). Клик 3: Сброс."
+purple_Info.Font = Enum.Font.Gotham
+purple_Info.TextSize = 12
+purple_Info.TextColor3 = Color3.fromRGB(200, 200, 200)
+purple_Info.TextWrapped = true
+purple_Info.BackgroundTransparency = 1
+purple_Info.Size = UDim2.new(1, -10, 0, 50)
+
+local purple_PlayersFrame = Instance.new("ScrollingFrame", purpleBombFrame)
+purple_PlayersFrame.Name = "PurplePlayersList"
+purple_PlayersFrame.Size = UDim2.new(1, 0, 0, 200)
+purple_PlayersFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+purple_PlayersFrame.BorderSizePixel = 0
+purple_PlayersFrame.ScrollBarThickness = 4
+purple_PlayersFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+local purple_PlayersLayout = Instance.new("UIListLayout", purple_PlayersFrame)
+purple_PlayersLayout.Padding = UDim.new(0, 5)
+
+local purple_ToggleButton = Instance.new("TextButton", purpleBombFrame)
+purple_ToggleButton.Size = UDim2.new(1, -10, 0, 50)
+purple_ToggleButton.Font = Enum.Font.GothamBold
+purple_ToggleButton.TextSize = 16
+purple_ToggleButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+purple_ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+purple_ToggleButton.Text = "АКТИВИРОВАТЬ"
+
+local purple_ButtonCorner = Instance.new("UICorner", purple_ToggleButton)
+purple_ButtonCorner.CornerRadius = UDim.new(0, 6)
+
+local function purple_isPlayerIgnored(player)
+    if player == localPlayer then return true end
+    return purple_playerStates[player] == 1
+end
+
+local function purple_masterLoop()
+    if not localPlayer.Character or not localPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local altRoot = localPlayer.Character.HumanoidRootPart
+    local bestTargetObject = nil
+    local minDistance = 70
+    
+    for _, descendant in ipairs(workspace:GetDescendants()) do
+        if descendant:IsA("BasePart") and not descendant.Anchored then
+            if not (descendant:FindFirstAncestorOfClass("Model") and descendant:FindFirstAncestorOfClass("Model"):FindFirstChildOfClass("Humanoid")) then
+                local distance = (altRoot.Position - descendant.Position).Magnitude
+                if distance < minDistance then
+                    minDistance = distance
+                    bestTargetObject = descendant
+                end
+            end
+        end
+    end
+    
+    if bestTargetObject then
+        local targetCFrame = bestTargetObject.CFrame
+        local priorityTargets = {}
+        for player, state in pairs(purple_playerStates) do
+            if state == 2 then table.insert(priorityTargets, player) end
+        end
+        
+        if #priorityTargets > 0 then
+            for _, player in ipairs(priorityTargets) do
+                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    pcall(function() player.Character.HumanoidRootPart.CFrame = targetCFrame end)
+                end
+            end
+        else
+            for _, player in ipairs(Players:GetPlayers()) do
+                if not purple_isPlayerIgnored(player) then
+                    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                        pcall(function() player.Character.HumanoidRootPart.CFrame = targetCFrame end)
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function purple_createPlayerButton(player)
+    local button = Instance.new("TextButton", purple_PlayersFrame)
+    button.Name = player.Name
+    button.Text = player.Name
+    button.Font = Enum.Font.Gotham
+    button.TextSize = 13
+    button.TextColor3 = Color3.fromRGB(220, 220, 255)
+    local currentState = purple_playerStates[player] or 0
+    if currentState == 1 then button.BackgroundColor3 = Color3.fromRGB(180, 80, 0)
+    elseif currentState == 2 then button.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+    else button.BackgroundColor3 = Color3.fromRGB(50, 50, 70) end
+    button.Size = UDim2.new(1, -10, 0, 25)
+    local corner = Instance.new("UICorner", button)
+    corner.CornerRadius = UDim.new(0, 4)
+    button.MouseButton1Click:Connect(function()
+        local newState = ((purple_playerStates[player] or 0) + 1) % 3
+        purple_playerStates[player] = newState
+        if newState == 1 then button.BackgroundColor3 = Color3.fromRGB(180, 80, 0)
+        elseif newState == 2 then button.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+        else button.BackgroundColor3 = Color3.fromRGB(50, 50, 70) end
+        applyTheme(currentTheme)
+    end)
+end
+
+local function purple_updatePlayersList()
+    for _, child in ipairs(purple_PlayersFrame:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= localPlayer then purple_createPlayerButton(player) end
+    end
+    purple_PlayersFrame.CanvasSize = UDim2.new(0, 0, 0, purple_PlayersLayout.AbsoluteContentSize.Y)
+end
+
+purple_ToggleButton.MouseButton1Click:Connect(function()
+    purple_isBombActive = not purple_isBombActive
+    if purple_isBombActive then
+        purple_ToggleButton.Text = "ДЕАКТИВИРОВАТЬ"
+        purple_ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 180, 50)
+        purple_masterConnection = RunService.Heartbeat:Connect(purple_masterLoop)
+    else
+        if purple_masterConnection then
+            purple_masterConnection:Disconnect()
+            purple_masterConnection = nil
+        end
+        purple_ToggleButton.Text = "АКТИВИРОВАТЬ"
+        purple_ToggleButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+    end
+    applyTheme(currentTheme)
+end)
+
+local function showError(label, message)
+    label.Text = message
+    label.TextColor3 = FARM_COLORS.Error
+    local tweenInfo = TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
+    local tween = TweenService:Create(label, tweenInfo, {TextTransparency = 0.5})
+    tween:Play()
+
+    task.delay(3, function()
+        tween:Cancel()
+        label.TextTransparency = 0
+        if targetName ~= "" then
+            label.Text = targetName
+            label.TextColor3 = themes[currentTheme].colors.text
+        else
+            label.Text = "No Player Selected"
+            label.TextColor3 = themes[currentTheme].colors.text
+        end
+    end)
+end
+
+local function findPlayerFarm(name)
+    if not name or name == "" then return nil end
+    local lowered = name:lower()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= localPlayer and (p.Name:lower():find(lowered) or p.DisplayName:lower():find(lowered)) then
+            return p
+        end
+    end
+    return nil
+end
+
+local function forceResetFarm()
+    pcall(function()
+        if localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid") then
+            localPlayer.Character.Humanoid.Health = 0
+        end
+    end)
+end
+
+local function teleportToFarm(target)
+    pcall(function()
+        local char = localPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local tgtChar = target.Character
+            if tgtChar and tgtChar:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.CFrame = tgtChar.HumanoidRootPart.CFrame * CFrame.new(0, 0, -2)
+            end
+        end
+    end)
+end
+
+local function teleportToWaypointFarm()
+    pcall(function()
+        local char = localPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") and waypoint then
+            char.HumanoidRootPart.CFrame = CFrame.new(waypoint + Vector3.new(0, 5, 0))
+        end
+    end)
+end
+
+local function createMarkerFarm(pos)
+    if marker then marker:Destroy() end
+    marker = Instance.new("Part")
+    marker.Size = Vector3.new(2, 8, 2)
+    marker.Position = pos + Vector3.new(0, 4, 0)
+    marker.Anchored = true
+    marker.CanCollide = false
+    marker.Material = Enum.Material.Neon
+    marker.Color = themes[currentTheme].colors.accent
+    marker.Transparency = 0.5
+    marker.Shape = Enum.PartType.Cylinder
+
+    local light = Instance.new("PointLight")
+    light.Color = themes[currentTheme].colors.accent
+    light.Brightness = 2
+    light.Range = 10
+    light.Parent = marker
+
+    marker.Parent = workspace
+end
+
+local stopFarmingFarm
+local startFarmingFarm
+
+local function startTargetTeleportFarm()
+    if targetTeleportConnection then
+        targetTeleportConnection:Disconnect()
+        targetTeleportConnection = nil
+    end
+
+    targetTeleportConnection = RunService.Heartbeat:Connect(function()
+        if not farming then
+            if targetTeleportConnection then
+                targetTeleportConnection:Disconnect()
+                targetTeleportConnection = nil
+            end
+            return
+        end
+
+        local char = localPlayer.Character
+        if not char then return end
+        local humanoid = char:FindFirstChild("Humanoid")
+        local rootPart = char:FindFirstChild("HumanoidRootPart")
+        if not (humanoid and rootPart and humanoid.Health > 0) then return end
+
+        local target = findPlayerFarm(targetName)
+        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            teleportToFarm(target)
+        else
+            stopFarmingFarm()
+        end
+    end)
+end
+
+local function stopTargetTeleportFarm()
+    if targetTeleportConnection then
+        targetTeleportConnection:Disconnect()
+        targetTeleportConnection = nil
+    end
+end
+
+startFarmingFarm = function()
+    if farming then return end
+
+    local targetPlayer = findPlayerFarm(targetName)
+    if not targetPlayer then
+        showError(farm_nameDisplay, "Player Not Found")
+        farming = false
+        return
+    end
+
+    farming = true
+    farm_farmBtn.Text = "Anti-Cheat: ON"
+    farm_farmBtn.BackgroundColor3 = themes[currentTheme].colors.accent
+    farm_nameDisplay.TextColor3 = themes[currentTheme].colors.accent
+
+    farmLoop = task.spawn(function()
+        while farming do
+            local char = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+            local humanoid = char:WaitForChild("Humanoid")
+            local rootPart = char:WaitForChild("HumanoidRootPart")
+
+            task.wait(0.1)
+
+            if waypoint then
+                teleportToWaypointFarm()
+            end
+
+            task.wait(0.2)
+
+            startTargetTeleportFarm()
+
+            task.wait(resetInterval)
+
+            if farming then
+                forceResetFarm()
+            end
+
+            repeat
+                task.wait(0.1)
+                char = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+                humanoid = char:FindFirstChild("Humanoid") or char:WaitForChild("Humanoid")
+                rootPart = char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart")
+            until humanoid.Health > 0
+
+            stopTargetTeleportFarm()
+        end
+    end)
+end
+
+stopFarmingFarm = function()
+    farming = false
+    farm_farmBtn.Text = "Anti-Cheat: OFF"
+    farm_farmBtn.BackgroundColor3 = FARM_COLORS.ButtonOff
+    if farmLoop then
+        task.cancel(farmLoop)
+        farmLoop = nil
+    end
+    stopTargetTeleportFarm()
+end
+_G.stopFarmingFarm = stopFarmingFarm
+
+farm_farmBtn.MouseButton1Click:Connect(function()
+    if farm_nameDisplay.Text == "No Player Selected" or farm_nameDisplay.Text == "" then
+        showError(farm_nameDisplay, "Player Not Found")
+        return
+    end
+
+    local target = findPlayerFarm(farm_nameDisplay.Text)
+    if not target then
+        showError(farm_nameDisplay, "Player Not Found")
+        return
+    end
+
+    if not farming then
+        startFarmingFarm()
+    else
+        stopFarmingFarm()
+    end
+end)
+
+farm_setBtn.MouseButton1Click:Connect(function()
+    selectingWaypoint = true
+    farm_setBtn.Text = "Tap a part to set waypoint"
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not selectingWaypoint or gameProcessed then return end
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        local touchPos = input.Position
+
+        local camera = workspace.CurrentCamera
+        local unitRay = camera:ScreenPointToRay(touchPos.X, touchPos.Y)
+
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterDescendantsInstances = {localPlayer.Character}
+        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+        local rayResult = workspace:Raycast(unitRay.Origin, unitRay.Direction * 500, raycastParams)
+
+        if rayResult and rayResult.Instance and rayResult.Instance:IsA("BasePart") then
+            waypoint = rayResult.Instance.Position + Vector3.new(0, rayResult.Instance.Size.Y / 2, 0)
+            createMarkerFarm(waypoint)
+            farm_setBtn.Text = "Waypoint Set!"
+            task.delay(1, function() farm_setBtn.Text = "Set Waypoint" end)
+            selectingWaypoint = false
+        end
+    end
+end)
+
+farm_nameDisplay.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if inputGui then
+            inputGui:Destroy()
+            inputGui = nil
+        end
+
+        inputGui = Instance.new("ScreenGui")
+        inputGui.Name = "InputGui"
+        inputGui.Parent = ScreenGui
+
+        local frameInput = Instance.new("Frame")
+        frameInput.Size = UDim2.new(0, 220, 0, 100)
+        frameInput.Position = UDim2.new(0.5, -110, 0.5, -50)
+        frameInput.BackgroundColor3 = themes[currentTheme].colors.background
+        frameInput.BorderSizePixel = 0
+        applyRoundedCornersFarm(frameInput)
+        frameInput.Parent = inputGui
+
+        local box = Instance.new("TextBox")
+        box.PlaceholderText = "Enter player name"
+        box.Size = UDim2.new(1, -20, 0, 35)
+        box.Position = UDim2.new(0, 10, 0, 10)
+        box.BackgroundColor3 = FARM_COLORS.Dark
+        box.TextColor3 = FARM_COLORS.Text
+        box.Font = Enum.Font.Gotham
+        box.TextSize = 18
+        box.ClearTextOnFocus = false
+        box.Text = targetName or ""
+        applyRoundedCornersFarm(box)
+        box.Parent = frameInput
+
+        local confirmBtn = Instance.new("TextButton")
+        confirmBtn.Text = "Confirm"
+        confirmBtn.Size = UDim2.new(1, -20, 0, 35)
+        confirmBtn.Position = UDim2.new(0, 10, 0, 55)
+        confirmBtn.BackgroundColor3 = themes[currentTheme].colors.buttons
+        confirmBtn.Font = Enum.Font.GothamBold
+        confirmBtn.TextColor3 = FARM_COLORS.Text
+        confirmBtn.TextSize = 18
+        applyRoundedCornersFarm(confirmBtn)
+        confirmBtn.Parent = frameInput
+
+        box.FocusLost:Connect(function(enterPressed)
+            if enterPressed then
+                local text = box.Text
+                if #text >= 2 then
+                    local lowerText = text:lower()
+                    local foundFullName = nil
+                    for _, p in ipairs(Players:GetPlayers()) do
+                        if p.Name:lower():sub(1, #lowerText) == lowerText or p.DisplayName:lower():sub(1, #lowerText) == lowerText then
+                            foundFullName = p.Name
+                            break
+                        end
+                    end
+                    if foundFullName then
+                        box.Text = foundFullName
+                    end
+                end
+            end
+        end)
+
+        confirmBtn.MouseButton1Click:Connect(function()
+            local text = box.Text
+            local target = findPlayerFarm(text)
+            if target then
+                targetName = target.Name
+                farm_nameDisplay.Text = targetName
+                farm_nameDisplay.TextColor3 = themes[currentTheme].colors.accent
+            else
+                targetName = ""
+                showError(farm_nameDisplay, "Player Not Found")
+            end
+            if inputGui then
+                inputGui:Destroy()
+                inputGui = nil
+            end
+        end)
+    end
+end)
+
+local draggingSlider = false
+local sliderDragInput = nil
+local sliderDragStartPos = nil
+local sliderStartPos = nil
+
+sliderButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingSlider = true
+        sliderDragInput = input
+        sliderDragStartPos = input.Position
+        sliderStartPos = sliderButton.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                draggingSlider = false
+            end
+        })
+    end
+end)
+
+sliderButton.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        sliderDragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if draggingSlider and input == sliderDragInput then
+        local delta = input.Position - sliderDragStartPos
+        local newX = sliderStartPos.X.Offset + delta.X
+        local maxX = sliderFrame.AbsoluteSize.X - sliderButton.AbsoluteSize.X
+        newX = math.clamp(newX, 0, maxX)
+        local normValue = newX / maxX
+        
+        resetInterval = math.floor(1 + normValue * 29 + 0.5)
+        resetLabel.Text = "Reset interval: "..tostring(resetInterval).." sec"
+        
+        sliderButton.Position = UDim2.new(normValue, 0, 0, 0)
+    end
+end)
+
+local function globalUpdateAllPlayerLists()
+    updateMainTabPlayersList()
+    purple_updatePlayersList()
+    applyTheme(currentTheme)
+end
+
+localPlayer.CharacterAdded:Connect(function(character)
+    if ScreenGui and ScreenGui.Parent == nil then
+        ScreenGui.Parent = localPlayer:WaitForChild("PlayerGui")
+    end
+
+    if _G.OrbitActive then
+        setPlayerCollision(localPlayer, false)
+    end
+
+    globalUpdateAllPlayerLists()
+
+    if isViewerActive then
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= localPlayer then
+                pcall(updateAbilityViewer, player)
+            end
+        end
+    end
+end)
+
+
+Players.PlayerAdded:Connect(globalUpdateAllPlayerLists)
+Players.PlayerRemoving:Connect(function(player)
+    if player == _G.BringTargetPlayer then
+        if _G.BringActive then
+            setPlayerCollision(player, true)
+            _G.BringActive = false
+            BringButton.Text = "START BRINGING"
+            TweenService:Create(BringButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0, 120, 180)}):Play()
+            if _G.BringConnection then _G.BringConnection:Disconnect() end
+        end
+        _G.BringTargetPlayer = nil
+    end
+    if player == _G.OrbitTargetPlayer then
+        if _G.OrbitActive then
+            setPlayerCollision(localPlayer, true)
+            _G.OrbitActive = false
+            OrbitButton.Text = "START ORBITING"
+            TweenService:Create(OrbitButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0, 120, 180)}):Play()
+            if _G.OrbitConnection then _G.OrbitConnection:Disconnect() end
+        end
+        _G.OrbitTargetPlayer = nil
+    end
+    if player == _G.BringTargetPlayer or player == _G.OrbitTargetPlayer then
+        StatusLabel.Text = "Status: Player left"
+        StatusLabel.TextColor3 = Color3.fromRGB(200, 150, 150)
+    end
+    
+    if purple_playerStates[player] then purple_playerStates[player] = nil end
+    
+    globalUpdateAllPlayerLists()
+end)
+
+globalUpdateAllPlayerLists()
+
+applyTheme(1)
+
+print("RONNIX HUB (Полная версия с Purple Bomb) успешно запущен!")
+print("F5 - Свернуть/развернуть GUI")
+
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.F5 then
+        if MainFrame.Visible then minimizeGUI() else expandGUI() end
+    end
+end)
